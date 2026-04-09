@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background-color: #222; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+        button { padding: 20px; font-size: 24px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div style="text-align:center;">
+        <h1>My Custom Game</h1>
+        <button onclick="play()">Click Me!</button>
+        <p id="score">Score: 0</p>
+    </div>
+
+    <script>
+        let score = 0;
+        function play() {
+            score++;
+            document.getElementById('score').innerText = 'Score: ' + score;
+        }
+    </script>
+</body>
+</html>
