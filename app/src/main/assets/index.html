@@ -1,24 +1,380 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Saving Text Tracker</title>
     <style>
-        body { margin: 0; background-color: #222; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
-        button { padding: 20px; font-size: 24px; cursor: pointer; }
+        /* --- Dark Mode Styles --- */
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --border-color: #333;
+            --accent-color: #3a3a3a;
+            --accent-hover: #555;
+            --yes-color: #4CAF50;
+            --no-color: #f44336;
+            --header-color: #64B5F6;
+            --warning-color: #ff9800;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); max-width: 800px; margin: 0 auto; padding: 20px; }
+        h2 { text-align: center; color: #ffffff; }
+        .panel { background-color: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .header-controls { display: flex; justify-content: space-between; align-items: center; }
+        button { background-color: var(--accent-color); color: white; border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        button:hover { background-color: var(--accent-hover); }
+        .btn-open { background-color: #2196F3; border-color: #1e88e5; font-weight: bold; font-size: 16px; padding: 12px 20px; }
+        .btn-open:hover { background-color: #1976D2; }
+        #saveStatus { font-style: italic; color: #888; font-size: 14px; margin-left: 15px; }
+
+        /* --- List Styles --- */
+        #listContainer { display: none; }
+        .line-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); background-color: var(--container-bg); }
+        .header-item { background-color: rgba(255, 255, 255, 0.04); margin-top: 15px; border-top: 1px solid var(--border-color); }
+        .header-text { font-size: 18px; font-weight: bold; color: var(--header-color); text-transform: uppercase; letter-spacing: 1px; }
+        .item-number { color: #888; font-weight: bold; margin-right: 10px; min-width: 24px; text-align: right; user-select: none; }
+        .drag-handle { cursor: grab; padding: 0 10px 0 5px; color: #888; font-size: 20px; user-select: none; }
+        .drag-handle:active { cursor: grabbing; }
+        .line-text { flex: 1; padding: 8px; margin-right: 15px; line-height: 1.5; word-break: break-word; border: 1px solid transparent; border-radius: 4px; outline: none; transition: 0.2s; }
+        .line-text:hover { border-color: var(--border-color); background-color: rgba(255, 255, 255, 0.03); cursor: text; }
+        .line-text:focus { border-color: var(--yes-color); background-color: rgba(0, 0, 0, 0.2); }
+        .btn-delete { background: transparent; border: none; color: var(--no-color); font-size: 18px; padding: 5px 15px; cursor: pointer; opacity: 0.6; }
+        .btn-delete:hover { opacity: 1; transform: scale(1.1); }
+        .add-item-container { display: flex; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
+        input[type="text"].new-item-input { flex: 1; padding: 10px; background-color: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; outline: none; }
+        input[type="text"].new-item-input:focus { border-color: #2196F3; }
+        
+        /* --- Toggle Switch Styles --- */
+        .switch { position: relative; display: inline-block; width: 70px; height: 34px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--no-color); transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; z-index: 2; }
+        .slider:after { content: 'NO'; position: absolute; color: white; font-weight: bold; font-size: 12px; top: 50%; right: 10px; transform: translateY(-50%); transition: .4s; z-index: 1; }
+        input:checked + .slider { background-color: var(--yes-color); }
+        input:checked + .slider:before { transform: translateX(36px); }
+        input:checked + .slider:after { content: 'YES'; left: 10px; right: auto; }
     </style>
 </head>
 <body>
-    <div style="text-align:center;">
-        <h1>My Custom Game</h1>
-        <button onclick="play()">Click Me!</button>
-        <p id="score">Score: 0</p>
+
+    <h2>Text File Tracker</h2>
+
+    <div class="panel header-controls">
+        <div>
+            <button id="btnOpen" class="btn-open">📁 Open .txt File</button>
+            <span id="saveStatus">Checking environment...</span>
+        </div>
+        <span id="fileLabel" style="font-weight: bold; color: #aaa;"></span>
+    </div>
+
+    <div id="listContainer" class="panel">
+        <div id="itemsWrapper"></div>
+        <div class="add-item-container">
+            <input type="text" id="newItemInput" class="new-item-input" placeholder="Add line (Start with '/' or '###' for a header)..." onkeypress="handleKeyPress(event)">
+            <button onclick="addItem()">Add Item</button>
+        </div>
     </div>
 
     <script>
-        let score = 0;
-        function play() {
-            score++;
-            document.getElementById('score').innerText = 'Score: ' + score;
+        const VISUAL_STORAGE_KEY = 'txt_tracker_autosave_backup';
+        const DB_NAME = 'FileHandleDB';
+        const DB_STORE = 'handles';
+        
+        let fileHandle = null;
+        let appData = { fileName: "", items:[] };
+        let draggedIndex = null;
+        let saveTimeout = null;
+        let historyStack =[];
+        let historyIndex = -1;
+
+        // Check if running inside our Custom Android App wrapper
+        const isAndroid = typeof AndroidBridge !== 'undefined';
+
+        // --- DB Helper (Only used for PC) ---
+        const dbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onupgradeneeded = (event) => event.target.result.createObjectStore(DB_STORE);
+            request.onsuccess = (event) => resolve(event.target.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+
+        async function saveHandleToDB(handle) {
+            const db = await dbPromise;
+            const tx = db.transaction(DB_STORE, 'readwrite');
+            tx.objectStore(DB_STORE).put(handle, 'activeFileHandle');
+        }
+
+        async function getHandleFromDB() {
+            const db = await dbPromise;
+            return new Promise((resolve) => {
+                const tx = db.transaction(DB_STORE, 'readonly');
+                const req = tx.objectStore(DB_STORE).get('activeFileHandle');
+                req.onsuccess = () => resolve(req.result);
+            });
+        }
+
+        // --- Startup Logic ---
+        window.onload = async function() {
+            if (isAndroid) {
+                document.getElementById('saveStatus').textContent = "Native Android App Ready.";
+            } else if (!window.showOpenFilePicker) {
+                document.getElementById('saveStatus').textContent = "⚠️ Browser not supported.";
+                return;
+            } else {
+                document.getElementById('saveStatus').textContent = "Requires Chrome/Edge";
+            }
+
+            // Load Visuals from LocalStorage
+            const savedData = localStorage.getItem(VISUAL_STORAGE_KEY);
+            if (savedData) {
+                appData = JSON.parse(savedData);
+                renderUI();
+            }
+
+            // Silent Reconnect (PC Only)
+            if (!isAndroid) {
+                try {
+                    const storedHandle = await getHandleFromDB();
+                    if (storedHandle) {
+                        fileHandle = storedHandle;
+                        document.getElementById('saveStatus').textContent = "Ready. Interact to sync.";
+                        document.getElementById('saveStatus').style.color = "#888";
+                        pushToHistory(true);
+                    }
+                } catch(e) {}
+            } else {
+                pushToHistory(true);
+            }
+        };
+
+        document.addEventListener('keydown', function(e) {
+            if (document.activeElement.isContentEditable) return;
+            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); performUndo(); }
+            else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); performRedo(); }
+        });
+
+        // --- Open File Logic ---
+        async function openFile() {
+            // IF ANDROID: Delegate to Native File Picker
+            if (isAndroid) {
+                AndroidBridge.openFilePicker();
+                return;
+            }
+
+            // IF PC: Use normal File System Access API
+            try {
+                [fileHandle] = await window.showOpenFilePicker({
+                    types:[{ description: 'Text Files', accept: {'text/plain': ['.txt']} }], multiple: false
+                });
+                await saveHandleToDB(fileHandle);
+                const file = await fileHandle.getFile();
+                const content = await file.text();
+                
+                appData.fileName = file.name;
+                processTextContent(content);
+            } catch (err) { console.log(err); }
+        }
+        document.getElementById('btnOpen').addEventListener('click', openFile);
+
+        // --- CALLED BY ANDROID JAVA AFTER PICKING A FILE ---
+        function loadFromAndroid(base64Content, fileName) {
+            // Safely decode UTF-8 Base64 text back to a standard string
+            const content = decodeURIComponent(escape(atob(base64Content)));
+            appData.fileName = fileName || "Android File.txt";
+            processTextContent(content);
+        }
+
+        function processTextContent(content) {
+            parseContent(content);
+            renderUI();
+            localStorage.setItem(VISUAL_STORAGE_KEY, JSON.stringify(appData));
+            historyStack =[]; historyIndex = -1; pushToHistory();
+            document.getElementById('saveStatus').textContent = "Connected & Saved.";
+            document.getElementById('saveStatus').style.color = "var(--yes-color)";
+        }
+
+        // --- Save Logic ---
+        async function triggerAutoSave(recordHistory = true) {
+            localStorage.setItem(VISUAL_STORAGE_KEY, JSON.stringify(appData));
+            if (recordHistory) pushToHistory();
+
+            const statusEl = document.getElementById('saveStatus');
+
+            const content = appData.items.map(item => {
+                if (item.isHeader) return '### ' + item.text;
+                return (item.checked ? '[x] ' : '[ ] ') + item.text;
+            }).join('\n');
+
+            // IF ANDROID: Send string to Java to save via ContentResolver
+            if (isAndroid) {
+                statusEl.textContent = "Syncing to Android...";
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    // Safely encode UTF-8 to Base64 to prevent string-breaking in evaluateJavascript
+                    const base64Content = btoa(unescape(encodeURIComponent(content)));
+                    AndroidBridge.saveFile(base64Content);
+                }, 500);
+                return;
+            }
+
+            // IF PC: Save via FileHandle
+            if (!fileHandle) {
+                statusEl.textContent = "⚠️ Saved Locally. No File Connected.";
+                return;
+            }
+
+            statusEl.textContent = "Syncing...";
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                try {
+                    const opts = { mode: 'readwrite' };
+                    if ((await fileHandle.queryPermission(opts)) !== 'granted') {
+                        if ((await fileHandle.requestPermission(opts)) !== 'granted') throw new Error('Permission denied');
+                    }
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    statusEl.textContent = "Saved to disk.";
+                    statusEl.style.color = "var(--yes-color)";
+                } catch (err) {
+                    statusEl.textContent = "⚠️ Disk Sync Pending";
+                    statusEl.style.color = "var(--warning-color)";
+                }
+            }, 500);
+        }
+
+        // --- CALLED BY ANDROID JAVA ON SAVE SUCCESS/FAIL ---
+        function onSaveSuccess() {
+            document.getElementById('saveStatus').textContent = "Saved to Android device.";
+            document.getElementById('saveStatus').style.color = "var(--yes-color)";
+        }
+        function onSaveError() {
+            document.getElementById('saveStatus').textContent = "⚠️ Android Save Failed";
+            document.getElementById('saveStatus').style.color = "var(--warning-color)";
+        }
+
+
+        // --- History System ---
+        function pushToHistory(isInitialLoad = false) {
+            if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
+            historyStack.push(JSON.parse(JSON.stringify(appData)));
+            historyIndex++;
+            if (historyStack.length > 50) { historyStack.shift(); historyIndex--; }
+        }
+        function performUndo() {
+            if (historyIndex > 0) { historyIndex--; appData = JSON.parse(JSON.stringify(historyStack[historyIndex])); renderList(); triggerAutoSave(false); }
+        }
+        function performRedo() {
+            if (historyIndex < historyStack.length - 1) { historyIndex++; appData = JSON.parse(JSON.stringify(historyStack[historyIndex])); renderList(); triggerAutoSave(false); }
+        }
+
+        // --- Parsing & Rendering ---
+        function parseContent(content) {
+            const lines = content.split(/\r?\n/);
+            appData.items =[];
+            lines.forEach(line => {
+                if (line.trim() === '') return;
+                let text = line.trim(); let checked = false; let isHeader = false;
+                if (text.startsWith('/')) { isHeader = true; text = text.substring(1).trim(); } 
+                else if (text.startsWith('###')) { isHeader = true; text = text.replace(/^###\s*/, '').trim(); } 
+                else if (text.startsWith('[x]') || text.startsWith('[X]')) { checked = true; text = text.replace(/^\[[xX]\]\s*/, ''); } 
+                else if (text.startsWith('[ ]')) { text = text.replace(/^\[ \]\s*/, ''); }
+                appData.items.push({ text: text, checked: checked, isHeader: isHeader });
+            });
+        }
+
+        function renderUI() {
+            document.getElementById('listContainer').style.display = 'block';
+            document.getElementById('fileLabel').textContent = appData.fileName ? ("Editing: " + appData.fileName) : "";
+            renderList();
+        }
+
+        function renderList() {
+            const wrapper = document.getElementById('itemsWrapper');
+            wrapper.innerHTML = ''; 
+            let currentNumber = 1;
+
+            appData.items.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = item.isHeader ? 'line-item header-item' : 'line-item';
+                div.draggable = true; 
+
+                const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '&#9776;';
+                let numberSpan = null;
+                if (item.isHeader) { currentNumber = 1; } else { numberSpan = document.createElement('span'); numberSpan.className = 'item-number'; numberSpan.textContent = currentNumber + "."; currentNumber++; }
+
+                const textSpan = document.createElement('span');
+                textSpan.className = item.isHeader ? 'line-text header-text' : 'line-text';
+                textSpan.textContent = item.text;
+                textSpan.contentEditable = "true"; textSpan.spellcheck = false;
+
+                let initialText = item.text;
+                textSpan.addEventListener('focus', () => { initialText = textSpan.textContent; });
+                textSpan.addEventListener('blur', function(e) {
+                    const newText = e.target.textContent;
+                    if (newText !== initialText) { appData.items[index].text = newText; triggerAutoSave(); }
+                });
+
+                let checkbox = null;
+                textSpan.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); textSpan.blur(); } 
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); const prev = div.previousElementSibling; if (prev) placeCaretAtEnd(prev.querySelector('.line-text')); } 
+                    else if (e.key === 'ArrowDown') { e.preventDefault(); const next = div.nextElementSibling; if (next) placeCaretAtEnd(next.querySelector('.line-text')); } 
+                    else if (e.key === 'Control' || e.key === 'Meta') { if (!item.isHeader && checkbox) { e.preventDefault(); checkbox.checked = !checkbox.checked; appData.items[index].checked = checkbox.checked; triggerAutoSave(); } }
+                });
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'btn-delete'; delBtn.innerHTML = '🗑️';
+                delBtn.onclick = function() { appData.items.splice(index, 1); triggerAutoSave(); renderList(); };
+
+                div.appendChild(handle);
+                if (numberSpan) div.appendChild(numberSpan);
+                div.appendChild(textSpan); div.appendChild(delBtn);
+
+                if (!item.isHeader) {
+                    const label = document.createElement('label'); label.className = 'switch';
+                    checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = item.checked;
+                    checkbox.addEventListener('change', function(e) { appData.items[index].checked = e.target.checked; triggerAutoSave(); });
+                    const slider = document.createElement('span'); slider.className = 'slider';
+                    label.appendChild(checkbox); label.appendChild(slider); div.appendChild(label);
+                }
+                
+                div.addEventListener('dragstart', function() { draggedIndex = index; setTimeout(() => div.classList.add('dragging'), 0); });
+                div.addEventListener('dragend', function() { div.classList.remove('dragging'); });
+                div.addEventListener('dragover', function(e) { e.preventDefault(); div.classList.add('drag-over'); });
+                div.addEventListener('dragleave', function() { div.classList.remove('drag-over'); });
+                div.addEventListener('drop', function(e) {
+                    e.preventDefault(); div.classList.remove('drag-over');
+                    const targetIndex = index;
+                    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+                        const draggedItem = appData.items.splice(draggedIndex, 1)[0];
+                        appData.items.splice(targetIndex, 0, draggedItem);
+                        triggerAutoSave(); renderList(); 
+                    }
+                });
+                wrapper.appendChild(div);
+            });
+        }
+
+        function addItem() {
+            const input = document.getElementById('newItemInput'); let text = input.value.trim();
+            if (text === '') return; let isHeader = false;
+            if (text.startsWith('/')) { isHeader = true; text = text.substring(1).trim(); } 
+            else if (text.startsWith('###')) { isHeader = true; text = text.replace(/^###\s*/, '').trim(); }
+            appData.items.push({ text: text, checked: false, isHeader: isHeader });
+            input.value = ''; triggerAutoSave(); renderList();
+        }
+
+        function handleKeyPress(event) { if (event.key === 'Enter') addItem(); }
+        
+        function placeCaretAtEnd(el) {
+            el.focus();
+            if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
+                let range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
+                let sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+            }
         }
     </script>
 </body>
