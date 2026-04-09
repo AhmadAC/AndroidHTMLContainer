@@ -7,3 +7,11 @@ buildscript {
         classpath 'com.android.tools.build:gradle:8.2.0'
     }
 }
+
+// THIS is the new part that fixes the download error
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
