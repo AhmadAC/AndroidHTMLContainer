@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Needed if your HTML pulls external scripts/images -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -10,11 +9,11 @@
         android:label="My HTML Game"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         
-        <!-- The dot before MainActivity tells it to use the namespace from build.gradle -->
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.action.LAUNCHER" />
+                <!-- THIS LINE IS FIXED: changed "action" to "category" -->
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         
