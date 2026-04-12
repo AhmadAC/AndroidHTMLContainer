@@ -188,32 +188,46 @@
             if (isAndroid) {
                 appData = { fileName: "New_List.txt", items:[] };
                 fileHandle = null;
-                processTextContent("");
+                processTextContent(""); // Clears the UI
+                document.getElementById('saveStatus').textContent = "Unsaved File. Click Save As.";
                 return;
             }
+            
+            // PC Code...
             try {
                 const handle = await window.showSaveFilePicker({
                     suggestedName: 'New_Tracker_List.txt',
-                    types: [{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
+                    types:[{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
                 });
                 fileHandle = handle;
                 await saveHandleToDB(fileHandle);
                 appData.fileName = handle.name;
-                processTextContent(""); // Clears the UI and sets up new file
+                processTextContent("");
                 triggerAutoSave();
             } catch (err) { console.log("User cancelled new file creation", err); }
         }
 
         // --- SAVE AS LOGIC ---
         async function saveAsFile() {
+            // 1. Gather all the current text
+            const content = appData.items.map(item => {
+                if (item.isHeader) return '### ' + item.text;
+                return (item.checked ? '[x] ' : '[ ] ') + item.text;
+            }).join('\n');
+
+            // 2. ANDROID SAVE AS
             if (isAndroid) {
-                triggerAutoSave(); // Just save on Android
+                document.getElementById('saveStatus').textContent = "Pick save location...";
+                const base64Content = btoa(unescape(encodeURIComponent(content)));
+                AndroidBridge.saveAsFile(base64Content, appData.fileName || 'Tracker_List.txt');
                 return;
             }
+            
+            // 3. PC SAVE AS
             try {
                 const handle = await window.showSaveFilePicker({
                     suggestedName: appData.fileName || 'Tracker_List.txt',
-                    types: [{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
+                    types:[{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
                 });
                 fileHandle = handle;
                 await saveHandleToDB(fileHandle);
@@ -236,7 +250,7 @@
                 statusEl.textContent = "📋 Copied to clipboard!";
                 statusEl.style.color = "var(--yes-color)";
                 setTimeout(() => { 
-                    statusEl.textContent = fileHandle ? "Saved to disk." : "Ready."; 
+                    statusEl.textContent = fileHandle || isAndroid ? "Saved to disk." : "Ready."; 
                     statusEl.style.color = "#888"; 
                 }, 3000);
             } catch (err) {
@@ -251,8 +265,7 @@
                 AndroidBridge.openFilePicker();
                 return;
             }
-            try {
-                [fileHandle] = await window.showOpenFilePicker({
+            try {[fileHandle] = await window.showOpenFilePicker({
                     types:[{ description: 'Text Files', accept: {'text/plain': ['.txt']} }], multiple: false
                 });
                 await saveHandleToDB(fileHandle);
