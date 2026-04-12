@@ -1,109 +1,167 @@
-package com.example.htmlgame;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
+import android.database.Cursor;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
-public class MainActivity extends Activity {
-    private WebView myWebView;
+public class MainActivity extends AppCompatActivity {
+
+    private WebView webView;
     private Uri currentFileUri = null;
-    private static final int PICK_FILE_REQUEST = 1;
+    private String pendingSaveAsContent = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        myWebView = new WebView(this);
-        setContentView(myWebView);
-        
-        WebSettings webSettings = myWebView.getSettings();
+        webView = new WebView(this);
+        setContentView(webView);
+
+        WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true); 
-        
-        // This injects the "AndroidBridge" into your HTML JavaScript
-        myWebView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
-        
-        myWebView.loadUrl("file:///android_asset/index.html");
+        webSettings.setDomStorageEnabled(true); // Required for HTML local storage
+
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
+
+        // Bind the JavaScript interface
+        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
+
+        // Load the HTML file
+        webView.loadUrl("file:///android_asset/index.html");
     }
 
-    // --- JAVASCRIPT BRIDGE ---
-    public class WebAppInterface {
-        
-        @JavascriptInterface
-        public void openFilePicker() {
-            // Opens the native Android file picker
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("text/plain");
-            startActivityForResult(intent, PICK_FILE_REQUEST);
-        }
-
-        @JavascriptInterface
-        public void saveFile(final String base64Content) {
-            if (currentFileUri != null) {
-                try {
-                    // Decode the text sent from HTML and write it to the Android file
-                    byte[] decodedBytes = Base64.decode(base64Content, Base64.DEFAULT);
-                    OutputStream os = getContentResolver().openOutputStream(currentFileUri);
-                    if (os != null) {
-                        os.write(decodedBytes);
-                        os.close();
-                        runOnUiThread(() -> myWebView.evaluateJavascript("javascript:onSaveSuccess()", null));
+    // --- FILE OPENER LAUNCHER ---
+    private final ActivityResultLauncher<Intent> openFileLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    currentFileUri = result.getData().getData();
+                    if (currentFileUri != null) {
+                        try {
+                            getContentResolver().takePersistableUriPermission(currentFileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        } catch (Exception e) { e.printStackTrace(); }
+                        readAndSendToWeb(currentFileUri);
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    runOnUiThread(() -> myWebView.evaluateJavascript("javascript:onSaveError()", null));
+                }
+            }
+    );
+
+    // --- SAVE AS LAUNCHER ---
+    private final ActivityResultLauncher<Intent> saveAsLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                    currentFileUri = result.getData().getData();
+                    if (currentFileUri != null) {
+                        try {
+                            getContentResolver().takePersistableUriPermission(currentFileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                        } catch (Exception e) { e.printStackTrace(); }
+                        
+                        // Write the data to the newly created file location
+                        writeToFile(currentFileUri, pendingSaveAsContent);
+                        readAndSendToWeb(currentFileUri); // Refresh the app UI with the new filename
+                    }
+                }
+            }
+    );
+
+    private void readAndSendToWeb(Uri uri) {
+        try {
+            InputStream is = getContentResolver().openInputStream(uri);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) { sb.append(line).append("\n"); }
+            reader.close();
+            
+            String fileName = getFileName(uri);
+            String base64Content = Base64.encodeToString(sb.toString().getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+            
+            webView.post(() -> webView.evaluateJavascript("javascript:loadFromAndroid('" + base64Content + "', '" + fileName + "')", null));
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void writeToFile(Uri uri, String content) {
+        try {
+            OutputStream os = getContentResolver().openOutputStream(uri);
+            if (os != null) {
+                os.write(content.getBytes(StandardCharsets.UTF_8));
+                os.close();
+                webView.post(() -> webView.evaluateJavascript("javascript:onSaveSuccess()", null));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            webView.post(() -> webView.evaluateJavascript("javascript:onSaveError()", null));
+        }
+    }
+
+    private String getFileName(Uri uri) {
+        String result = "Loaded File.txt";
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    if (index != -1) { result = cursor.getString(index); }
                 }
             }
         }
+        return result;
     }
 
-    // --- HANDLE FILE PICKER RESULT ---
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_FILE_REQUEST && resultCode == RESULT_OK && data != null) {
-            currentFileUri = data.getData();
-            if (currentFileUri != null) {
-                
-                // Request permission to write to this file in the background later
-                getContentResolver().takePersistableUriPermission(currentFileUri, 
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    // --- THE BRIDGE BETWEEN JAVA AND HTML ---
+    private class WebAppInterface {
 
-                try {
-                    // Read the text file
-                    InputStream is = getContentResolver().openInputStream(currentFileUri);
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\n");
-                    }
-                    is.close();
-                    
-                    String fileName = currentFileUri.getLastPathSegment();
-                    if(fileName != null && fileName.contains(":")) fileName = fileName.substring(fileName.lastIndexOf(":") + 1);
-                    if(fileName != null) fileName = fileName.replace("'", "\\'"); // Escape quotes
+        @JavascriptInterface
+        public void openFilePicker() {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/plain");
+            openFileLauncher.launch(intent);
+        }
 
-                    // Convert to Base64 to safely pass into Javascript without breaking syntax
-                    String base64Content = Base64.encodeToString(sb.toString().getBytes("UTF-8"), Base64.NO_WRAP);
-                    
-                    // Call the Javascript function in your HTML
-                    final String jsCall = "javascript:loadFromAndroid('" + base64Content + "', '" + fileName + "')";
-                    runOnUiThread(() -> myWebView.evaluateJavascript(jsCall, null));
-
-                } catch (Exception e) {
-                    e.printStackTrace();
+        @JavascriptInterface
+        public void saveFile(String base64Content) {
+            try {
+                String content = new String(Base64.decode(base64Content, Base64.DEFAULT), StandardCharsets.UTF_8);
+                if (currentFileUri != null) {
+                    writeToFile(currentFileUri, content);
+                } else {
+                    // If the user tries to auto-save but hasn't picked a file yet, force "Save As"
+                    saveAsFile(base64Content, "New_Tracker_List.txt");
                 }
+            } catch (Exception e) {
+                webView.post(() -> webView.evaluateJavascript("javascript:onSaveError()", null));
+            }
+        }
+
+        @JavascriptInterface
+        public void saveAsFile(String base64Content, String suggestedName) {
+            try {
+                pendingSaveAsContent = new String(Base64.decode(base64Content, Base64.DEFAULT), StandardCharsets.UTF_8);
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("text/plain");
+                intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
+                saveAsLauncher.launch(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
