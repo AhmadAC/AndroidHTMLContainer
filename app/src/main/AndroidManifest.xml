@@ -5,11 +5,17 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/sym_def_app_icon"
-        android:label="My HTML Game"
+        android:icon="@drawable/logo"
+        android:roundIcon="@drawable/logo"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity 
+            android:name=".MainActivity" 
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize">
+            
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <!-- THIS LINE IS FIXED: changed "action" to "category" -->
