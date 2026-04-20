@@ -149,7 +149,8 @@ public class MainActivity extends Activity {
 
     private void writeToFile(Uri uri, String content) {
         try {
-            OutputStream os = getContentResolver().openOutputStream(uri);
+            // Using "rwt" (read-write-truncate) guarantees Android deletes old leftovers at the end of the file.
+            OutputStream os = getContentResolver().openOutputStream(uri, "rwt");
             if (os != null) {
                 os.write(content.getBytes(StandardCharsets.UTF_8));
                 os.close();
@@ -193,9 +194,6 @@ public class MainActivity extends Activity {
                     String content = new String(Base64.decode(base64Content, Base64.DEFAULT), StandardCharsets.UTF_8);
                     writeToFile(currentFileUri, content);
                 } 
-                // Removed the fallback to saveAsFile(). 
-                // If currentFileUri is null, we do nothing and wait for the user to explicitly press "Save As".
-                // This prevents the infinite dialog boxes from popping up when the user makes an edit.
             } catch (Exception e) {
                 webView.post(() -> webView.evaluateJavascript("javascript:onSaveError()", null));
             }

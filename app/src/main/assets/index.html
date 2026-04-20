@@ -2,481 +2,404 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto-Saving Text Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Text Tracker</title>
     <style>
-        /* --- Dark Mode Styles --- */
         :root {
-            --bg-color: #121212;
-            --container-bg: #1e1e1e;
-            --text-color: #e0e0e0;
-            --border-color: #333;
-            --accent-color: #3a3a3a;
-            --accent-hover: #555;
-            --yes-color: #4CAF50;
-            --no-color: #f44336;
-            --header-color: #64B5F6;
-            --warning-color: #ff9800;
-            --primary-blue: #2196F3;
-            --primary-blue-hover: #1976D2;
+            --bg-color: #f9fafb;
+            --header-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --primary-color: #3b82f6;
+            --danger-color: #ef4444;
+            --item-bg: #ffffff;
         }
-
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); max-width: 800px; margin: 0 auto; padding: 20px; }
-        h2 { text-align: center; color: #ffffff; margin-bottom: 30px; }
         
-        /* --- Panel & Toolbar --- */
-        .panel { background-color: var(--container-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        * { box-sizing: border-box; }
         
-        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
         
-        button { background-color: var(--accent-color); color: white; border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s ease; display: flex; align-items: center; gap: 6px; }
-        button:hover { background-color: var(--accent-hover); transform: translateY(-1px); }
-        button:active { transform: translateY(1px); }
+        header {
+            background-color: var(--header-bg);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
         
-        .btn-blue { background-color: var(--primary-blue); border-color: var(--primary-blue-hover); }
-        .btn-blue:hover { background-color: var(--primary-blue-hover); }
+        .header-left, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         
-        #saveStatus { font-style: italic; color: #888; transition: color 0.3s ease; }
-        #fileLabel { font-weight: bold; color: var(--header-color); background: rgba(100, 181, 246, 0.1); padding: 4px 10px; border-radius: 4px; }
-
-        /* --- List Styles --- */
-        #listContainer { display: none; }
-        .line-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); background-color: var(--container-bg); transition: background-color 0.2s; }
-        .line-item:hover { background-color: rgba(255, 255, 255, 0.02); }
-        .header-item { background-color: rgba(255, 255, 255, 0.04); margin-top: 15px; border-top: 1px solid var(--border-color); border-radius: 4px 4px 0 0; }
-        .header-text { font-size: 18px; font-weight: bold; color: var(--header-color); text-transform: uppercase; letter-spacing: 1px; }
+        #fileName {
+            font-weight: 600;
+            font-size: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 130px;
+        }
         
-        .item-number { color: #888; font-weight: bold; margin-right: 10px; min-width: 24px; text-align: right; user-select: none; }
-        .drag-handle { cursor: grab; padding: 0 10px 0 5px; color: #666; font-size: 20px; user-select: none; transition: color 0.2s; }
-        .drag-handle:hover { color: #aaa; }
-        .drag-handle:active { cursor: grabbing; }
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 16px;
+        }
         
-        .line-text { flex: 1; padding: 8px; margin-right: 15px; line-height: 1.5; word-break: break-word; border: 1px solid transparent; border-radius: 4px; outline: none; transition: 0.2s; }
-        .line-text:hover { border-color: var(--border-color); background-color: rgba(255, 255, 255, 0.03); cursor: text; }
-        .line-text:focus { border-color: var(--yes-color); background-color: rgba(0, 0, 0, 0.2); box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2); }
+        button:active { background-color: var(--border-color); }
         
-        .btn-delete { background: transparent; border: none; color: var(--no-color); font-size: 18px; padding: 5px 15px; cursor: pointer; opacity: 0.4; box-shadow: none; }
-        .btn-delete:hover { opacity: 1; transform: scale(1.1); background: transparent; }
+        #undoBtn {
+            color: var(--text-main);
+            opacity: 0.3;
+            pointer-events: none;
+        }
         
-        /* --- Add Item Input --- */
-        .add-item-container { display: flex; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
-        input[type="text"].new-item-input { flex: 1; padding: 12px; background-color: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; outline: none; font-size: 15px; transition: border-color 0.2s; }
-        input[type="text"].new-item-input:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2); }
+        #undoBtn.active {
+            opacity: 1;
+            pointer-events: auto;
+            color: var(--primary-color);
+        }
         
-        /* --- Toggle Switch Styles --- */
-        .switch { position: relative; display: inline-block; width: 70px; height: 34px; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--no-color); transition: .4s; border-radius: 34px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
-        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        .slider:after { content: 'NO'; position: absolute; color: white; font-weight: bold; font-size: 12px; top: 50%; right: 10px; transform: translateY(-50%); transition: .4s; z-index: 1; }
-        input:checked + .slider { background-color: var(--yes-color); }
-        input:checked + .slider:before { transform: translateX(36px); }
-        input:checked + .slider:after { content: 'YES'; left: 10px; right: auto; }
-
-        /* Drag & Drop Visuals */
-        .dragging { opacity: 0.5; background-color: rgba(255,255,255,0.05); }
-        .drag-over { border-top: 2px solid var(--primary-blue); }
+        #undoBtn svg { width: 24px; height: 24px; }
+        
+        main {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        
+        .list-container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .item-wrapper {
+            position: relative;
+            background-color: var(--danger-color);
+            border-bottom: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .item {
+            background-color: var(--item-bg);
+            padding: 16px;
+            font-size: 16px;
+            line-height: 1.5;
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            touch-action: pan-y;
+            position: relative;
+            z-index: 1;
+            will-change: transform;
+        }
+        
+        .delete-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            font-weight: bold;
+            z-index: 0;
+        }
+        
+        .input-area {
+            background-color: var(--header-bg);
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            box-shadow: 0 -1px 2px rgba(0,0,0,0.05);
+        }
+        
+        #newItemInput {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        #newItemInput:focus { border-color: var(--primary-color); }
+        
+        #addBtn {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 24px;
+            padding: 0 20px;
+        }
+        
+        #addBtn:active { background-color: #2563eb; }
+        
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
 
-    <h2>Text File Tracker</h2>
+    <header>
+        <div class="header-left">
+            <span id="fileName">No File</span>
+        </div>
+        <div class="header-right">
+            <button id="undoBtn" onclick="undo()" aria-label="Undo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+            </button>
+            <button onclick="openFile()">Open</button>
+            <button onclick="saveAsFile()">Save As</button>
+        </div>
+    </header>
 
-    <!-- Controls Panel -->
-    <div class="panel">
-        <div class="toolbar">
-            <button id="btnNew" onclick="createNewFile()" title="Create a brand new text file">📄 New File</button>
-            <button id="btnOpen" class="btn-blue" onclick="openFile()" title="Open an existing text file">📂 Open File</button>
-            <button id="btnSaveAs" onclick="saveAsFile()" title="Save a copy of the current list">💾 Save As...</button>
-            <button id="btnCopy" onclick="copyToClipboard()" title="Copy entire list to clipboard">📋 Copy List</button>
-        </div>
-        <div class="status-bar">
-            <span id="fileLabel">No File Open</span>
-            <span id="saveStatus">Checking environment...</span>
-        </div>
-    </div>
+    <main id="mainContent">
+        <div class="list-container" id="list"></div>
+    </main>
 
-    <!-- Tracker List Panel -->
-    <div id="listContainer" class="panel">
-        <div id="itemsWrapper"></div>
-        <div class="add-item-container">
-            <input type="text" id="newItemInput" class="new-item-input" placeholder="Add a new line (Start with '/' or '###' for a header)..." onkeypress="handleKeyPress(event)">
-            <button class="btn-blue" onclick="addItem()">➕ Add Item</button>
-        </div>
+    <div class="input-area">
+        <input type="text" id="newItemInput" placeholder="Add a new item..." autocomplete="off">
+        <button id="addBtn" onclick="addItem()">Add</button>
     </div>
 
     <script>
-        const VISUAL_STORAGE_KEY = 'txt_tracker_autosave_backup';
-        const DB_NAME = 'FileHandleDB';
-        const DB_STORE = 'handles';
+        let items = [];
+        let currentFileName = "";
+        let undoStack = [];
         
-        let fileHandle = null;
-        let appData = { fileName: "", items:[] };
-        let draggedIndex = null;
-        let saveTimeout = null;
-        let historyStack =[];
-        let historyIndex = -1;
+        const listElement = document.getElementById('list');
+        const fileNameElement = document.getElementById('fileName');
+        const undoBtn = document.getElementById('undoBtn');
+        const inputElement = document.getElementById('newItemInput');
 
-        // Check if running inside Custom Android App wrapper
-        const isAndroid = typeof AndroidBridge !== 'undefined';
-
-        // --- DB Helper (Only used for PC) ---
-        const dbPromise = new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, 1);
-            request.onupgradeneeded = (event) => event.target.result.createObjectStore(DB_STORE);
-            request.onsuccess = (event) => resolve(event.target.result);
-            request.onerror = (event) => reject(event.target.error);
-        });
-
-        async function saveHandleToDB(handle) {
-            const db = await dbPromise;
-            const tx = db.transaction(DB_STORE, 'readwrite');
-            tx.objectStore(DB_STORE).put(handle, 'activeFileHandle');
-        }
-
-        async function getHandleFromDB() {
-            const db = await dbPromise;
-            return new Promise((resolve) => {
-                const tx = db.transaction(DB_STORE, 'readonly');
-                const req = tx.objectStore(DB_STORE).get('activeFileHandle');
-                req.onsuccess = () => resolve(req.result);
-            });
-        }
-
-        // --- Startup Logic ---
-        window.onload = async function() {
-            if (isAndroid) {
-                document.getElementById('saveStatus').textContent = "Native Android App Ready.";
-            } else if (!window.showOpenFilePicker) {
-                document.getElementById('saveStatus').textContent = "⚠️ Browser not supported. Use Chrome/Edge.";
-                return;
-            } else {
-                document.getElementById('saveStatus').textContent = "Ready.";
-            }
-
-            // Load Visuals from LocalStorage
-            const savedData = localStorage.getItem(VISUAL_STORAGE_KEY);
-            if (savedData) {
-                appData = JSON.parse(savedData);
-                if (appData.items.length > 0 || appData.fileName) renderUI();
-            }
-
-            // Silent Reconnect (PC Only)
-            if (!isAndroid) {
-                try {
-                    const storedHandle = await getHandleFromDB();
-                    if (storedHandle) {
-                        fileHandle = storedHandle;
-                        document.getElementById('saveStatus').textContent = "Ready. Interact to sync.";
-                        pushToHistory(true);
-                    }
-                } catch(e) {}
-            } else {
-                pushToHistory(true);
-            }
-        };
-
-        document.addEventListener('keydown', function(e) {
-            if (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT') return;
-            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); performUndo(); }
-            else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); performRedo(); }
-        });
-
-        // --- NEW FILE LOGIC ---
-        async function createNewFile() {
-            if (isAndroid) {
-                appData = { fileName: "New_List.txt", items:[] };
-                fileHandle = null;
-                processTextContent(""); // Clears the UI
-                document.getElementById('saveStatus').textContent = "Unsaved File. Click Save As.";
-                return;
-            }
-            
-            // PC Code...
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: 'New_Tracker_List.txt',
-                    types:[{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
-                });
-                fileHandle = handle;
-                await saveHandleToDB(fileHandle);
-                appData.fileName = handle.name;
-                processTextContent("");
-                triggerAutoSave();
-            } catch (err) { console.log("User cancelled new file creation", err); }
-        }
-
-        // --- SAVE AS LOGIC ---
-        async function saveAsFile() {
-            // 1. Gather all the current text
-            const content = appData.items.map(item => {
-                if (item.isHeader) return '### ' + item.text;
-                return (item.checked ? '[x] ' : '[ ] ') + item.text;
-            }).join('\n');
-
-            // 2. ANDROID SAVE AS
-            if (isAndroid) {
-                document.getElementById('saveStatus').textContent = "Pick save location...";
-                const base64Content = btoa(unescape(encodeURIComponent(content)));
-                AndroidBridge.saveAsFile(base64Content, appData.fileName || 'Tracker_List.txt');
-                return;
-            }
-            
-            // 3. PC SAVE AS
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: appData.fileName || 'Tracker_List.txt',
-                    types:[{ description: 'Text Files', accept: {'text/plain':['.txt']} }]
-                });
-                fileHandle = handle;
-                await saveHandleToDB(fileHandle);
-                appData.fileName = handle.name;
-                renderUI();
-                triggerAutoSave();
-            } catch (err) { console.log("User cancelled Save As", err); }
-        }
-
-        // --- COPY TO CLIPBOARD LOGIC ---
-        async function copyToClipboard() {
-            const content = appData.items.map(item => {
-                if (item.isHeader) return '### ' + item.text;
-                return (item.checked ? '[x] ' : '[ ] ') + item.text;
-            }).join('\n');
-
-            try {
-                await navigator.clipboard.writeText(content);
-                const statusEl = document.getElementById('saveStatus');
-                statusEl.textContent = "📋 Copied to clipboard!";
-                statusEl.style.color = "var(--yes-color)";
-                setTimeout(() => { 
-                    statusEl.textContent = fileHandle || isAndroid ? "Saved to disk." : "Ready."; 
-                    statusEl.style.color = "#888"; 
-                }, 3000);
-            } catch (err) {
-                console.error("Failed to copy", err);
-                alert("Clipboard copy failed. Ensure you have given permissions.");
-            }
-        }
-
-        // --- OPEN FILE LOGIC ---
-        async function openFile() {
-            if (isAndroid) {
-                AndroidBridge.openFilePicker();
-                return;
-            }
-            try {[fileHandle] = await window.showOpenFilePicker({
-                    types:[{ description: 'Text Files', accept: {'text/plain': ['.txt']} }], multiple: false
-                });
-                await saveHandleToDB(fileHandle);
-                const file = await fileHandle.getFile();
-                const content = await file.text();
-                
-                appData.fileName = file.name;
-                processTextContent(content);
-            } catch (err) { console.log("User cancelled open file", err); }
-        }
-
-        // --- CALLED BY ANDROID JAVA AFTER PICKING A FILE ---
-        function loadFromAndroid(base64Content, fileName) {
-            const content = decodeURIComponent(escape(atob(base64Content)));
-            appData.fileName = fileName || "Android File.txt";
-            processTextContent(content);
-        }
-
-        function processTextContent(content) {
-            parseContent(content);
-            renderUI();
-            localStorage.setItem(VISUAL_STORAGE_KEY, JSON.stringify(appData));
-            historyStack =[]; historyIndex = -1; pushToHistory();
-            const statusEl = document.getElementById('saveStatus');
-            statusEl.textContent = "Connected & Loaded.";
-            statusEl.style.color = "var(--yes-color)";
-            setTimeout(() => statusEl.style.color = "#888", 2000);
-        }
-
-        // --- AUTO-SAVE LOGIC ---
-        async function triggerAutoSave(recordHistory = true) {
-            localStorage.setItem(VISUAL_STORAGE_KEY, JSON.stringify(appData));
-            if (recordHistory) pushToHistory();
-
-            const statusEl = document.getElementById('saveStatus');
-            const content = appData.items.map(item => {
-                if (item.isHeader) return '### ' + item.text;
-                return (item.checked ? '[x] ' : '[ ] ') + item.text;
-            }).join('\n');
-
-            if (isAndroid) {
-                statusEl.textContent = "Syncing to Android...";
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => {
-                    const base64Content = btoa(unescape(encodeURIComponent(content)));
-                    AndroidBridge.saveFile(base64Content);
-                }, 500);
-                return;
-            }
-
-            if (!fileHandle) {
-                statusEl.textContent = "⚠️ Saved Locally. No File Connected.";
-                return;
-            }
-
-            statusEl.textContent = "Syncing...";
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(async () => {
-                try {
-                    const opts = { mode: 'readwrite' };
-                    if ((await fileHandle.queryPermission(opts)) !== 'granted') {
-                        if ((await fileHandle.requestPermission(opts)) !== 'granted') throw new Error('Permission denied');
-                    }
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(content);
-                    await writable.close();
-                    statusEl.textContent = "Saved to disk.";
-                    statusEl.style.color = "#888"; // Subtle neutral confirmation
-                } catch (err) {
-                    statusEl.textContent = "⚠️ Disk Sync Pending";
-                    statusEl.style.color = "var(--warning-color)";
-                }
-            }, 500);
-        }
-
-        // --- CALLED BY ANDROID JAVA ON SAVE SUCCESS/FAIL ---
-        function onSaveSuccess() {
-            document.getElementById('saveStatus').textContent = "Saved to Android device.";
-            document.getElementById('saveStatus').style.color = "#888";
-        }
-        function onSaveError() {
-            document.getElementById('saveStatus').textContent = "⚠️ Android Save Failed";
-            document.getElementById('saveStatus').style.color = "var(--warning-color)";
-        }
-
-        // --- History System ---
-        function pushToHistory(isInitialLoad = false) {
-            if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
-            historyStack.push(JSON.parse(JSON.stringify(appData)));
-            historyIndex++;
-            if (historyStack.length > 50) { historyStack.shift(); historyIndex--; }
-        }
-        function performUndo() {
-            if (historyIndex > 0) { historyIndex--; appData = JSON.parse(JSON.stringify(historyStack[historyIndex])); renderList(); triggerAutoSave(false); }
-        }
-        function performRedo() {
-            if (historyIndex < historyStack.length - 1) { historyIndex++; appData = JSON.parse(JSON.stringify(historyStack[historyIndex])); renderList(); triggerAutoSave(false); }
-        }
-
-        // --- Parsing & Rendering ---
-        function parseContent(content) {
-            const lines = content.split(/\r?\n/);
-            appData.items =[];
-            lines.forEach(line => {
-                if (line.trim() === '') return;
-                let text = line.trim(); let checked = false; let isHeader = false;
-                if (text.startsWith('/')) { isHeader = true; text = text.substring(1).trim(); } 
-                else if (text.startsWith('###')) { isHeader = true; text = text.replace(/^###\s*/, '').trim(); } 
-                else if (text.startsWith('[x]') || text.startsWith('[X]')) { checked = true; text = text.replace(/^\[[xX]\]\s*/, ''); } 
-                else if (text.startsWith('[ ]')) { text = text.replace(/^\[ \]\s*/, ''); }
-                appData.items.push({ text: text, checked: checked, isHeader: isHeader });
-            });
-        }
-
-        function renderUI() {
-            document.getElementById('listContainer').style.display = 'block';
-            document.getElementById('fileLabel').textContent = appData.fileName ? ("Editing: " + appData.fileName) : "Unsaved Local File";
+        function init() {
             renderList();
+            updateUndoBtn();
+        }
+
+        function saveState() {
+            undoStack.push([...items]);
+            updateUndoBtn();
+        }
+
+        function updateUndoBtn() {
+            if (undoStack.length > 0) {
+                undoBtn.classList.add('active');
+            } else {
+                undoBtn.classList.remove('active');
+            }
+        }
+
+        function undo() {
+            if (undoStack.length > 0) {
+                items = undoStack.pop();
+                renderList();
+                updateUndoBtn();
+                autoSave();
+            }
         }
 
         function renderList() {
-            const wrapper = document.getElementById('itemsWrapper');
-            wrapper.innerHTML = ''; 
-            let currentNumber = 1;
+            listElement.innerHTML = '';
+            
+            if (items.length === 0) {
+                listElement.innerHTML = '<div class="empty-state">List is empty</div>';
+                return;
+            }
 
-            appData.items.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.className = item.isHeader ? 'line-item header-item' : 'line-item';
-                div.draggable = true; 
+            items.forEach((itemText, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'item-wrapper';
 
-                const handle = document.createElement('span'); handle.className = 'drag-handle'; handle.innerHTML = '&#9776;';
-                let numberSpan = null;
-                if (item.isHeader) { currentNumber = 1; } else { numberSpan = document.createElement('span'); numberSpan.className = 'item-number'; numberSpan.textContent = currentNumber + "."; currentNumber++; }
+                const deleteBg = document.createElement('div');
+                deleteBg.className = 'delete-bg';
+                deleteBg.innerHTML = '<span>Delete</span><span>Delete</span>';
+                wrapper.appendChild(deleteBg);
 
-                const textSpan = document.createElement('span');
-                textSpan.className = item.isHeader ? 'line-text header-text' : 'line-text';
-                textSpan.textContent = item.text;
-                textSpan.contentEditable = "true"; textSpan.spellcheck = false;
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item';
+                itemDiv.innerText = itemText;
 
-                let initialText = item.text;
-                textSpan.addEventListener('focus', () => { initialText = textSpan.textContent; });
-                textSpan.addEventListener('blur', function(e) {
-                    const newText = e.target.textContent;
-                    if (newText !== initialText) { appData.items[index].text = newText; triggerAutoSave(); }
-                });
+                let startX = 0;
+                let startY = 0;
+                let currentX = 0;
+                let isSwiping = false;
+                let isVertical = false;
+                const swipeThreshold = Math.min(window.innerWidth * 0.4, 150);
 
-                let checkbox = null;
-                textSpan.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') { e.preventDefault(); textSpan.blur(); } 
-                    else if (e.key === 'ArrowUp') { e.preventDefault(); const prev = div.previousElementSibling; if (prev) placeCaretAtEnd(prev.querySelector('.line-text')); } 
-                    else if (e.key === 'ArrowDown') { e.preventDefault(); const next = div.nextElementSibling; if (next) placeCaretAtEnd(next.querySelector('.line-text')); } 
-                    else if (e.key === 'Control' || e.key === 'Meta') { if (!item.isHeader && checkbox) { e.preventDefault(); checkbox.checked = !checkbox.checked; appData.items[index].checked = checkbox.checked; triggerAutoSave(); } }
-                });
+                itemDiv.addEventListener('touchstart', (e) => {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    isSwiping = true;
+                    isVertical = false;
+                    itemDiv.style.transition = 'none';
+                }, { passive: true });
 
-                const delBtn = document.createElement('button');
-                delBtn.className = 'btn-delete'; delBtn.innerHTML = '🗑️'; delBtn.title = "Delete Item";
-                delBtn.onclick = function() { appData.items.splice(index, 1); triggerAutoSave(); renderList(); };
-
-                div.appendChild(handle);
-                if (numberSpan) div.appendChild(numberSpan);
-                div.appendChild(textSpan); div.appendChild(delBtn);
-
-                if (!item.isHeader) {
-                    const label = document.createElement('label'); label.className = 'switch'; label.title = "Toggle Done";
-                    checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = item.checked;
-                    checkbox.addEventListener('change', function(e) { appData.items[index].checked = e.target.checked; triggerAutoSave(); });
-                    const slider = document.createElement('span'); slider.className = 'slider';
-                    label.appendChild(checkbox); label.appendChild(slider); div.appendChild(label);
-                }
-                
-                div.addEventListener('dragstart', function() { draggedIndex = index; setTimeout(() => div.classList.add('dragging'), 0); });
-                div.addEventListener('dragend', function() { div.classList.remove('dragging'); });
-                div.addEventListener('dragover', function(e) { e.preventDefault(); div.classList.add('drag-over'); });
-                div.addEventListener('dragleave', function() { div.classList.remove('drag-over'); });
-                div.addEventListener('drop', function(e) {
-                    e.preventDefault(); div.classList.remove('drag-over');
-                    const targetIndex = index;
-                    if (draggedIndex !== null && draggedIndex !== targetIndex) {
-                        const draggedItem = appData.items.splice(draggedIndex, 1)[0];
-                        appData.items.splice(targetIndex, 0, draggedItem);
-                        triggerAutoSave(); renderList(); 
+                itemDiv.addEventListener('touchmove', (e) => {
+                    if (!isSwiping) return;
+                    
+                    const deltaX = e.touches[0].clientX - startX;
+                    const deltaY = e.touches[0].clientY - startY;
+                    
+                    if (!isVertical && Math.abs(deltaY) > Math.abs(deltaX) + 5) {
+                        isVertical = true;
+                        isSwiping = false;
+                        itemDiv.style.transform = 'translateX(0)';
+                        return;
                     }
+                    
+                    if (isVertical) return;
+
+                    currentX = deltaX;
+                    itemDiv.style.transform = `translateX(${currentX}px)`;
+                }, { passive: true });
+
+                itemDiv.addEventListener('touchend', () => {
+                    if (!isSwiping) return;
+                    isSwiping = false;
+                    itemDiv.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    
+                    if (Math.abs(currentX) > swipeThreshold) {
+                        const direction = currentX > 0 ? 1 : -1;
+                        itemDiv.style.transform = `translateX(${direction * window.innerWidth}px)`;
+                        setTimeout(() => {
+                            deleteItem(index);
+                        }, 300);
+                    } else {
+                        itemDiv.style.transform = 'translateX(0)';
+                    }
+                    currentX = 0;
                 });
-                wrapper.appendChild(div);
+
+                wrapper.appendChild(itemDiv);
+                listElement.appendChild(wrapper);
             });
         }
 
         function addItem() {
-            const input = document.getElementById('newItemInput'); let text = input.value.trim();
-            if (text === '') return; let isHeader = false;
-            if (text.startsWith('/')) { isHeader = true; text = text.substring(1).trim(); } 
-            else if (text.startsWith('###')) { isHeader = true; text = text.replace(/^###\s*/, '').trim(); }
-            appData.items.push({ text: text, checked: false, isHeader: isHeader });
-            input.value = ''; triggerAutoSave(); renderList();
-            
-            // Auto scroll to bottom when adding new item
-            setTimeout(() => {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                input.focus();
-            }, 50);
-        }
-
-        function handleKeyPress(event) { if (event.key === 'Enter') addItem(); }
-        
-        function placeCaretAtEnd(el) {
-            el.focus();
-            if (typeof window.getSelection !== "undefined" && typeof document.createRange !== "undefined") {
-                let range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
-                let sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+            const text = inputElement.value.trim();
+            if (text !== "") {
+                saveState();
+                items.push(text);
+                inputElement.value = "";
+                renderList();
+                autoSave();
+                
+                const mainContent = document.getElementById('mainContent');
+                mainContent.scrollTop = mainContent.scrollHeight;
             }
         }
+
+        function deleteItem(index) {
+            saveState();
+            items.splice(index, 1);
+            renderList();
+            autoSave();
+        }
+
+        inputElement.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') addItem();
+        });
+
+        // ----- Android Bridge Functions -----
+
+        function openFile() {
+            if (window.AndroidBridge) AndroidBridge.openFilePicker();
+        }
+
+        function saveAsFile() {
+            if (window.AndroidBridge) {
+                const textContent = items.join('\n');
+                const base64Content = btoa(unescape(encodeURIComponent(textContent)));
+                const name = currentFileName || "NewList.txt";
+                AndroidBridge.saveAsFile(base64Content, name);
+            }
+        }
+
+        function autoSave() {
+            if (window.AndroidBridge) {
+                const textContent = items.join('\n');
+                const base64Content = btoa(unescape(encodeURIComponent(textContent)));
+                AndroidBridge.saveFile(base64Content);
+            }
+        }
+
+        function loadFromAndroid(base64Content, fileName) {
+            try {
+                const textContent = decodeURIComponent(escape(atob(base64Content)));
+                
+                if (textContent.trim() === "") {
+                    items = [];
+                } else {
+                    // Split by new line, and remove the final blank line if the file ends with one
+                    let lines = textContent.split(/\r?\n/);
+                    if (lines.length > 0 && lines[lines.length - 1] === "") {
+                        lines.pop();
+                    }
+                    items = lines;
+                }
+                
+                currentFileName = fileName;
+                fileNameElement.innerText = fileName;
+                
+                // Clear the undo history when a new file is loaded
+                undoStack = [];
+                renderList();
+                updateUndoBtn();
+            } catch (e) {
+                console.error("Error loading file:", e);
+                alert("Could not load or parse the file.");
+                items = [];
+                currentFileName = "Error.txt";
+                fileNameElement.innerText = currentFileName;
+                renderList();
+            }
+        }
+
+        function onSaveSuccess() {
+            console.log("Auto-save successful.");
+        }
+
+        function onSaveError() {
+            console.error("Auto-save failed.");
+            alert("Error: Could not save the file.");
+        }
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
