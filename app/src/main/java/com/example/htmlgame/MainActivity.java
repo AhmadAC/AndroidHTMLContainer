@@ -4,8 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.UriPermission;
-import android.content.SharedPreferences;
-import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -36,9 +34,6 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "AppPrefs";
     private static final String PREF_LAST_URI = "LastUri";
 
-    private static final String PREFS_NAME = "AppPrefs";
-    private static final String PREF_LAST_URI = "LastUri";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,19 +58,7 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        // Restore the last used file URI from the previous session
-        restoreLastSavedUri();
-
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                // Once the HTML finishes loading, automatically populate it with the remembered file
-                if (currentFileUri != null) {
-                    readAndSendToWeb(currentFileUri);
-                }
-            }
-        });
+        
         webView.setWebChromeClient(new WebChromeClient());
 
         // Bind the JavaScript interface
@@ -83,31 +66,6 @@ public class MainActivity extends Activity {
 
         // Load the HTML file
         webView.loadUrl("file:///android_asset/index.html");
-    }
-
-    private void restoreLastSavedUri() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String savedUriStr = prefs.getString(PREF_LAST_URI, null);
-        
-        if (savedUriStr != null) {
-            Uri parsedUri = Uri.parse(savedUriStr);
-            boolean hasPermission = false;
-            
-            // Verify that Android hasn't revoked our persistent permission to read/write this file
-            for (UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
-                if (permission.getUri().equals(parsedUri)) {
-                    hasPermission = true;
-                    break;
-                }
-            }
-            
-            if (hasPermission) {
-                currentFileUri = parsedUri;
-            } else {
-                // Permission was lost (e.g., file deleted), clear the preference
-                prefs.edit().remove(PREF_LAST_URI).apply();
-            }
-        }
     }
 
     private void restoreLastSavedUri() {
@@ -145,19 +103,12 @@ public class MainActivity extends Activity {
             if (uri != null) {
                 try {
                     // Ask Android to remember this file so we can auto-save to it later and across reboots
-                    // Ask Android to remember this file so we can auto-save to it later and across reboots
                     getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 } catch (Exception e) { 
                     e.printStackTrace(); 
                 }
 
                 currentFileUri = uri;
-                
-                // Save the URI to SharedPreferences to remember it next session
-                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit()
-                        .putString(PREF_LAST_URI, uri.toString())
-                        .apply();
                 
                 // Save the URI to SharedPreferences to remember it next session
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -182,8 +133,6 @@ public class MainActivity extends Activity {
             InputStream is = getContentResolver().openInputStream(uri);
             if (is == null) return;
             
-            if (is == null) return;
-            
             BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             String line;
@@ -194,9 +143,6 @@ public class MainActivity extends Activity {
             String base64Content = Base64.encodeToString(sb.toString().getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
             
             webView.post(() -> webView.evaluateJavascript("javascript:loadFromAndroid('" + base64Content + "', '" + fileName + "')", null));
-        } catch (Exception e) { 
-            e.printStackTrace(); 
-        }
         } catch (Exception e) { 
             e.printStackTrace(); 
         }
@@ -245,8 +191,6 @@ public class MainActivity extends Activity {
         public void saveFile(String base64Content) {
             try {
                 if (currentFileUri != null) {
-                    // File exists and is linked, silently write the changes (auto-save behavior)
-                    String content = new String(Base64.decode(base64Content, Base64.DEFAULT), StandardCharsets.UTF_8);
                     // File exists and is linked, silently write the changes (auto-save behavior)
                     String content = new String(Base64.decode(base64Content, Base64.DEFAULT), StandardCharsets.UTF_8);
                     writeToFile(currentFileUri, content);
