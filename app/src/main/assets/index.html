@@ -14,6 +14,7 @@
             --border-color: #e5e7eb;
             --primary-color: #3b82f6;
             --danger-color: #ef4444;
+            --success-color: #22c55e;
             --item-bg: #ffffff;
         }
 
@@ -26,6 +27,7 @@
                 --border-color: #374151;
                 --primary-color: #60a5fa;
                 --danger-color: #ef4444;
+                --success-color: #4ade80;
                 --item-bg: #1f2937;
             }
         }
@@ -129,8 +131,52 @@
             position: relative;
             z-index: 1;
             will-change: transform;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
         }
         
+        .item-text {
+            flex-grow: 1;
+            word-break: break-word;
+        }
+        
+        .task-checkbox {
+            -webkit-appearance: none;
+            appearance: none;
+            background-color: transparent;
+            margin: 0;
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--danger-color);
+            border-radius: 50%;
+            display: grid;
+            place-content: center;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        
+        .task-checkbox::before {
+            content: "";
+            width: 12px;
+            height: 12px;
+            transform: scale(0);
+            transition: 0.1s transform ease-in-out;
+            box-shadow: inset 1em 1em var(--item-bg);
+            background-color: var(--item-bg);
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+
+        .task-checkbox:checked {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .task-checkbox:checked::before {
+            transform: scale(1);
+        }
+
         .delete-bg {
             position: absolute;
             top: 0;
@@ -212,12 +258,9 @@
     </div>
 
     <script>
-        // --- Robust Base64 encoding/decoding for UTF-8 strings ---
         function utf8_to_b64(str) {
             return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-                function toSolidBytes(match, p1) {
-                    return String.fromCharCode('0x' + p1);
-                }
+                function toSolidBytes(match, p1) { return String.fromCharCode('0x' + p1); }
             ));
         }
 
@@ -242,16 +285,12 @@
         }
 
         function saveState() {
-            undoStack.push([...items]);
+            undoStack.push(JSON.parse(JSON.stringify(items)));
             updateUndoBtn();
         }
 
         function updateUndoBtn() {
-            if (undoStack.length > 0) {
-                undoBtn.classList.add('active');
-            } else {
-                undoBtn.classList.remove('active');
-            }
+            undoBtn.classList.toggle('active', undoStack.length > 0);
         }
 
         function undo() {
@@ -271,7 +310,7 @@
                 return;
             }
 
-            items.forEach((itemText, index) => {
+            items.forEach((item, index) => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'item-wrapper';
 
@@ -282,18 +321,25 @@
 
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'item';
-                itemDiv.innerText = itemText;
+                
+                const itemTextSpan = document.createElement('span');
+                itemTextSpan.className = 'item-text';
+                itemTextSpan.innerText = item.text;
 
-                let startX = 0;
-                let startY = 0;
-                let currentX = 0;
-                let isSwiping = false;
-                let isVertical = false;
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'task-checkbox';
+                checkbox.checked = item.checked;
+                checkbox.addEventListener('change', () => toggleChecked(index));
+
+                itemDiv.appendChild(itemTextSpan);
+                itemDiv.appendChild(checkbox);
+
+                let startX = 0, currentX = 0, isSwiping = false, isVertical = false;
                 const swipeThreshold = Math.min(window.innerWidth * 0.4, 150);
 
                 itemDiv.addEventListener('touchstart', (e) => {
                     startX = e.touches[0].clientX;
-                    startY = e.touches[0].clientY;
                     isSwiping = true;
                     isVertical = false;
                     itemDiv.style.transition = 'none';
@@ -301,34 +347,25 @@
 
                 itemDiv.addEventListener('touchmove', (e) => {
                     if (!isSwiping) return;
-                    
                     const deltaX = e.touches[0].clientX - startX;
-                    const deltaY = e.touches[0].clientY - startY;
-                    
-                    if (!isVertical && Math.abs(deltaY) > Math.abs(deltaX) + 5) {
+                    if (!isVertical && Math.abs(e.touches[0].clientY - startY) > Math.abs(deltaX) + 5) {
                         isVertical = true;
                         isSwiping = false;
                         itemDiv.style.transform = 'translateX(0)';
                         return;
                     }
-                    
                     if (isVertical) return;
-
                     currentX = deltaX;
                     itemDiv.style.transform = `translateX(${currentX}px)`;
                 }, { passive: true });
 
                 itemDiv.addEventListener('touchend', () => {
-                    if (!isSwiping) return;
+                    if (!isSwiping || isVertical) return;
                     isSwiping = false;
                     itemDiv.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
-                    
                     if (Math.abs(currentX) > swipeThreshold) {
-                        const direction = currentX > 0 ? 1 : -1;
-                        itemDiv.style.transform = `translateX(${direction * window.innerWidth}px)`;
-                        setTimeout(() => {
-                            deleteItem(index);
-                        }, 300);
+                        itemDiv.style.transform = `translateX(${currentX > 0 ? 1 : -1 * window.innerWidth}px)`;
+                        setTimeout(() => deleteItem(index), 300);
                     } else {
                         itemDiv.style.transform = 'translateX(0)';
                     }
@@ -344,13 +381,11 @@
             const text = inputElement.value.trim();
             if (text !== "") {
                 saveState();
-                items.push(text);
+                items.push({ text: text, checked: false });
                 inputElement.value = "";
                 renderList();
                 autoSave();
-                
-                const mainContent = document.getElementById('mainContent');
-                mainContent.scrollTop = mainContent.scrollHeight;
+                document.getElementById('mainContent').scrollTop = document.getElementById('mainContent').scrollHeight;
             }
         }
 
@@ -361,64 +396,60 @@
             autoSave();
         }
 
-        inputElement.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') addItem();
-        });
+        function toggleChecked(index) {
+            saveState();
+            items[index].checked = !items[index].checked;
+            autoSave();
+        }
 
-        // ----- Android Bridge Functions -----
+        inputElement.addEventListener('keypress', (e) => { if (e.key === 'Enter') addItem(); });
+
+        function getContentString() {
+            return items.map(item => `${item.checked ? '[x]' : '[ ]'} ${item.text}`).join('\n');
+        }
 
         function openFile() {
-            try {
-                if (window.AndroidBridge) AndroidBridge.openFilePicker();
-            } catch (e) {
-                console.error("Error calling openFilePicker:", e);
-                alert("Could not open file picker.");
-            }
+            try { if (window.AndroidBridge) AndroidBridge.openFilePicker(); } 
+            catch (e) { console.error("Error calling openFilePicker:", e); alert("Could not open file picker."); }
         }
 
         function saveAsFile() {
             try {
                 if (window.AndroidBridge) {
-                    const textContent = items.join('\n');
-                    const base64Content = utf8_to_b64(textContent);
+                    const base64Content = utf8_to_b64(getContentString());
                     const name = currentFileName || "NewList.txt";
                     AndroidBridge.saveAsFile(base64Content, name);
                 }
-            } catch (e) {
-                console.error("Error during saveAsFile:", e);
-                alert("Could not save the file.");
-            }
+            } catch (e) { console.error("Error during saveAsFile:", e); alert("Could not save the file."); }
         }
 
         function autoSave() {
             try {
                 if (window.AndroidBridge) {
-                    const textContent = items.join('\n');
-                    const base64Content = utf8_to_b64(textContent);
+                    const base64Content = utf8_to_b64(getContentString());
                     AndroidBridge.saveFile(base64Content);
                 }
-            } catch (e) {
-                console.error("Error during autoSave:", e);
-            }
+            } catch (e) { console.error("Error during autoSave:", e); }
         }
 
         function loadFromAndroid(base64Content, fileName) {
             try {
                 const textContent = b64_to_utf8(base64Content);
-                
                 if (textContent.trim() === "") {
                     items = [];
                 } else {
                     let lines = textContent.split(/\r?\n/);
-                    if (lines.length > 0 && lines[lines.length - 1] === "") {
-                        lines.pop();
-                    }
-                    items = lines;
+                    if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+                    
+                    items = lines.map(line => {
+                        const isChecked = line.startsWith('[x] ');
+                        const isUnchecked = line.startsWith('[ ] ');
+                        const text = (isChecked || isUnchecked) ? line.substring(4) : line;
+                        return { text: text, checked: isChecked };
+                    });
                 }
-                
                 currentFileName = fileName;
                 fileNameElement.innerText = fileName;
-                
                 undoStack = [];
                 renderList();
                 updateUndoBtn();
@@ -432,14 +463,8 @@
             }
         }
 
-        function onSaveSuccess() {
-            console.log("Auto-save successful.");
-        }
-
-        function onSaveError() {
-            console.error("Auto-save failed.");
-            alert("Error: Could not save the file.");
-        }
+        function onSaveSuccess() { console.log("Auto-save successful."); }
+        function onSaveError() { console.error("Auto-save failed."); alert("Error: Could not save the file."); }
         
         document.addEventListener('DOMContentLoaded', init);
     </script>
