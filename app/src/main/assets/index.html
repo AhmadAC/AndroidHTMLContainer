@@ -6,10 +6,7 @@
     <title>Text Tracker</title>
     <style>
         :root {
-            /* This tells the browser this app supports both themes and allows it to style UI elements like scrollbars */
             color-scheme: light dark;
-
-            /* Light Mode (Default) */
             --bg-color: #f9fafb;
             --header-bg: #ffffff;
             --text-main: #1f2937;
@@ -20,7 +17,6 @@
             --item-bg: #ffffff;
         }
 
-        /* Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #111827;
@@ -167,7 +163,6 @@
             font-size: 16px;
             outline: none;
             transition: border-color 0.2s;
-            /* Explicitly set colors to ensure they change with the theme */
             background-color: var(--bg-color);
             color: var(--text-main);
         }
@@ -217,6 +212,21 @@
     </div>
 
     <script>
+        // --- Robust Base64 encoding/decoding for UTF-8 strings ---
+        function utf8_to_b64(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+                function toSolidBytes(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+                }
+            ));
+        }
+
+        function b64_to_utf8(str) {
+            return decodeURIComponent(atob(str).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        }
+
         let items = [];
         let currentFileName = "";
         let undoStack = [];
@@ -358,34 +368,47 @@
         // ----- Android Bridge Functions -----
 
         function openFile() {
-            if (window.AndroidBridge) AndroidBridge.openFilePicker();
+            try {
+                if (window.AndroidBridge) AndroidBridge.openFilePicker();
+            } catch (e) {
+                console.error("Error calling openFilePicker:", e);
+                alert("Could not open file picker.");
+            }
         }
 
         function saveAsFile() {
-            if (window.AndroidBridge) {
-                const textContent = items.join('\n');
-                const base64Content = btoa(unescape(encodeURIComponent(textContent)));
-                const name = currentFileName || "NewList.txt";
-                AndroidBridge.saveAsFile(base64Content, name);
+            try {
+                if (window.AndroidBridge) {
+                    const textContent = items.join('\n');
+                    const base64Content = utf8_to_b64(textContent);
+                    const name = currentFileName || "NewList.txt";
+                    AndroidBridge.saveAsFile(base64Content, name);
+                }
+            } catch (e) {
+                console.error("Error during saveAsFile:", e);
+                alert("Could not save the file.");
             }
         }
 
         function autoSave() {
-            if (window.AndroidBridge) {
-                const textContent = items.join('\n');
-                const base64Content = btoa(unescape(encodeURIComponent(textContent)));
-                AndroidBridge.saveFile(base64Content);
+            try {
+                if (window.AndroidBridge) {
+                    const textContent = items.join('\n');
+                    const base64Content = utf8_to_b64(textContent);
+                    AndroidBridge.saveFile(base64Content);
+                }
+            } catch (e) {
+                console.error("Error during autoSave:", e);
             }
         }
 
         function loadFromAndroid(base64Content, fileName) {
             try {
-                const textContent = decodeURIComponent(escape(atob(base64Content)));
+                const textContent = b64_to_utf8(base64Content);
                 
                 if (textContent.trim() === "") {
                     items = [];
                 } else {
-                    // Split by new line, and remove the final blank line if the file ends with one
                     let lines = textContent.split(/\r?\n/);
                     if (lines.length > 0 && lines[lines.length - 1] === "") {
                         lines.pop();
@@ -393,4 +416,32 @@
                     items = lines;
                 }
                 
-                currentFileNa
+                currentFileName = fileName;
+                fileNameElement.innerText = fileName;
+                
+                undoStack = [];
+                renderList();
+                updateUndoBtn();
+            } catch (e) {
+                console.error("Error loading file:", e);
+                alert("Could not load or parse the file.");
+                items = [];
+                currentFileName = "Error.txt";
+                fileNameElement.innerText = currentFileName;
+                renderList();
+            }
+        }
+
+        function onSaveSuccess() {
+            console.log("Auto-save successful.");
+        }
+
+        function onSaveError() {
+            console.error("Auto-save failed.");
+            alert("Error: Could not save the file.");
+        }
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
