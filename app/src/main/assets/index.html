@@ -155,6 +155,7 @@
             display: grid;
             place-content: center;
             transition: background-color 0.2s, border-color 0.2s;
+            cursor: pointer;
         }
         
         .task-checkbox::before {
@@ -335,11 +336,13 @@
                 itemDiv.appendChild(itemTextSpan);
                 itemDiv.appendChild(checkbox);
 
-                let startX = 0, currentX = 0, isSwiping = false, isVertical = false;
+                let startX = 0, startY = 0, currentX = 0, isSwiping = false, isVertical = false;
                 const swipeThreshold = Math.min(window.innerWidth * 0.4, 150);
 
                 itemDiv.addEventListener('touchstart', (e) => {
+                    if (e.target === checkbox) return; // Don't swipe if touching the checkbox
                     startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
                     isSwiping = true;
                     isVertical = false;
                     itemDiv.style.transition = 'none';
@@ -347,14 +350,19 @@
 
                 itemDiv.addEventListener('touchmove', (e) => {
                     if (!isSwiping) return;
+                    
                     const deltaX = e.touches[0].clientX - startX;
-                    if (!isVertical && Math.abs(e.touches[0].clientY - startY) > Math.abs(deltaX) + 5) {
+                    const deltaY = e.touches[0].clientY - startY;
+
+                    if (!isVertical && Math.abs(deltaY) > Math.abs(deltaX) + 5) {
                         isVertical = true;
-                        isSwiping = false;
+                        isSwiping = false; // It's a scroll, not a swipe
                         itemDiv.style.transform = 'translateX(0)';
                         return;
                     }
+                    
                     if (isVertical) return;
+
                     currentX = deltaX;
                     itemDiv.style.transform = `translateX(${currentX}px)`;
                 }, { passive: true });
@@ -363,9 +371,13 @@
                     if (!isSwiping || isVertical) return;
                     isSwiping = false;
                     itemDiv.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                    
                     if (Math.abs(currentX) > swipeThreshold) {
-                        itemDiv.style.transform = `translateX(${currentX > 0 ? 1 : -1 * window.innerWidth}px)`;
-                        setTimeout(() => deleteItem(index), 300);
+                        const direction = currentX > 0 ? 1 : -1;
+                        itemDiv.style.transform = `translateX(${direction * window.innerWidth}px)`;
+                        setTimeout(() => {
+                            deleteItem(index);
+                        }, 300);
                     } else {
                         itemDiv.style.transform = 'translateX(0)';
                     }
@@ -399,6 +411,8 @@
         function toggleChecked(index) {
             saveState();
             items[index].checked = !items[index].checked;
+            // Re-render to apply potential styles for checked items, though not used now
+            renderList(); 
             autoSave();
         }
 
