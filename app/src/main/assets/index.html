@@ -6,6 +6,10 @@
     <title>Text Tracker</title>
     <style>
         :root {
+            /* This tells the browser this app supports both themes and allows it to style UI elements like scrollbars */
+            color-scheme: light dark;
+
+            /* Light Mode (Default) */
             --bg-color: #f9fafb;
             --header-bg: #ffffff;
             --text-main: #1f2937;
@@ -14,6 +18,20 @@
             --primary-color: #3b82f6;
             --danger-color: #ef4444;
             --item-bg: #ffffff;
+        }
+
+        /* Dark Mode */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #111827;
+                --header-bg: #1f2937;
+                --text-main: #f3f4f6;
+                --text-muted: #9ca3af;
+                --border-color: #374151;
+                --primary-color: #60a5fa;
+                --danger-color: #ef4444;
+                --item-bg: #1f2937;
+            }
         }
         
         * { box-sizing: border-box; }
@@ -149,6 +167,9 @@
             font-size: 16px;
             outline: none;
             transition: border-color 0.2s;
+            /* Explicitly set colors to ensure they change with the theme */
+            background-color: var(--bg-color);
+            color: var(--text-main);
         }
         
         #newItemInput:focus { border-color: var(--primary-color); }
@@ -372,34 +393,4 @@
                     items = lines;
                 }
                 
-                currentFileName = fileName;
-                fileNameElement.innerText = fileName;
-                
-                // Clear the undo history when a new file is loaded
-                undoStack = [];
-                renderList();
-                updateUndoBtn();
-            } catch (e) {
-                console.error("Error loading file:", e);
-                alert("Could not load or parse the file.");
-                items = [];
-                currentFileName = "Error.txt";
-                fileNameElement.innerText = currentFileName;
-                renderList();
-            }
-        }
-
-        function onSaveSuccess() {
-            console.log("Auto-save successful.");
-        }
-
-        function onSaveError() {
-            console.error("Auto-save failed.");
-            alert("Error: Could not save the file.");
-        }
-        
-        // Initial load
-        document.addEventListener('DOMContentLoaded', init);
-    </script>
-</body>
-</html>
+                currentFileNa
