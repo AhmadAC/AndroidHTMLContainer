@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            // We request the permissions on launch but proceed to let the user select a folder
+            // Permissions are requested on launch
         }
 
     private val folderPickerLauncher =
@@ -197,7 +197,6 @@ class MainActivity : AppCompatActivity() {
                 allowFileAccess = true
                 allowContentAccess = true
                 
-                // Allow XMLHttpRequest/Fetch API requests to load local resources
                 @Suppress("DEPRECATION")
                 allowUniversalAccessFromFileURLs = true
                 @Suppress("DEPRECATION")
@@ -209,7 +208,6 @@ class MainActivity : AppCompatActivity() {
 
             webChromeClient = object : WebChromeClient() {
                 override fun onPermissionRequest(request: PermissionRequest) {
-                    // Grant WebView access to requested media features (Camera, Mic) if approved in OS
                     request.grant(request.resources)
                 }
 
@@ -228,7 +226,6 @@ class MainActivity : AppCompatActivity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url ?: return false
-                    // Keep local file navigation internal to the WebView, open external sites in system browser
                     if (url.scheme == "http" || url.scheme == "https") {
                         val intent = Intent(Intent.ACTION_VIEW, url)
                         startActivity(intent)
