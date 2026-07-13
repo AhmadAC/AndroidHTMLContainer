@@ -1,3 +1,5 @@
+# .github\workflows\build.yml
+
 name: Build Android App
 
 # ---------------------------------------------------------
@@ -23,7 +25,7 @@ jobs:
       uses: actions/checkout@v4
 
     # This step automatically finds and replaces the name/version in your project files
-    - name: Update App Name and Version
+    - name: Update App Name, Version, and Fix Manifest
       run: |
         # Update App Name in strings.xml
         sed -i "s/<string name=\"app_name\">.*<\/string>/<string name=\"app_name\">${{ env.APP_NAME }}<\/string>/g" app/src/main/res/values/strings.xml
@@ -31,6 +33,13 @@ jobs:
         # Update Version Name and Code in build.gradle
         sed -i "s/versionName .*/versionName \"${{ env.APP_VERSION }}\"/g" app/build.gradle
         sed -i "s/versionCode .*/versionCode ${{ env.VERSION_CODE }}/g" app/build.gradle
+
+        # Fix AAPT errors by pointing missing mipmap icons to the existing logo in res/drawable/
+        sed -i 's/@mipmap\/ic_launcher_round/@drawable\/logo/g' app/src/main/AndroidManifest.xml
+        sed -i 's/@mipmap\/ic_launcher/@drawable\/logo/g' app/src/main/AndroidManifest.xml
+        
+        # Remove deprecated package attribute from Manifest (fixes namespace error)
+        sed -i 's/package="com.ahmadac.androidhtmlcontainer"//g' app/src/main/AndroidManifest.xml
 
     - name: Set up JDK 17
       uses: actions/setup-java@v3
